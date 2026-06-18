@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OmniCorp Global Careers</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .hidden-content { display: none; }
+        .visible-content { display: block; animation: fadeIn 0.5s; }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+    </style>
+</head>
+<body class="bg-gray-50 text-gray-800 font-sans">
+
+    <nav class="bg-slate-900 text-white p-6 shadow-md">
+        <div class="max-w-5xl mx-auto flex justify-between items-center">
+            <h1 class="text-2xl font-bold tracking-widest">OMNICORP</h1>
+            <ul class="flex space-x-6">
+                <li><a href="#" class="hover:text-blue-400">About</a></li>
+                <li><a href="#" class="hover:text-blue-400">Benefits</a></li>
+                <li><a href="#" class="text-blue-400 font-bold">Careers</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <header class="max-w-5xl mx-auto py-16 px-6">
+        <h2 class="text-4xl font-extrabold text-slate-900 mb-4">Build the Future with Us.</h2>
+        <p class="text-lg text-gray-600 max-w-2xl">We are looking for passionate engineers, designers, and thinkers. Explore our open positions below. Opportunities are updated on a rolling basis.</p>
+    </header>
+
+    <main class="max-w-5xl mx-auto px-6 pb-20">
+        
+        <section class="mb-12">
+            <h3 class="text-2xl font-bold border-b-2 border-slate-200 pb-2 mb-6">Current Openings</h3>
+            
+            <div class="space-y-6">
+                <div class="bg-white p-6 rounded-lg shadow-sm border border-gray-100">
+                    <h4 class="text-xl font-bold text-blue-600">Senior Systems Engineer</h4>
+                    <p class="text-sm text-gray-500 mb-3">Location: Remote | Type: Full-Time</p>
+                    <p class="text-gray-700">Looking for a backend specialist to handle distributed systems scaling. Experience with Kubernetes, PostgreSQL, and Python required.</p>
+                </div>
+
+                <div class="bg-white p-6 rounded-lg shadow-sm border border-gray-100">
+                    <h4 class="text-xl font-bold text-blue-600">2026 Summer Analyst Internship</h4>
+                    <p class="text-sm text-gray-500 mb-3">Location: New York | Type: Internship</p>
+                    <p class="text-gray-700">Applications open for the Summer 2026 cohort. Deadline to submit your portfolio is October 15th. We will not accept late submissions.</p>
+                </div>
+            </div>
+        </section>
+
+        <section class="mb-12">
+            <div class="text-center">
+                <button id="loadMoreBtn" class="bg-slate-800 text-white px-6 py-3 rounded hover:bg-slate-700 transition font-bold">
+                    Load More
+                </button>
+            </div>
+
+            <div id="hiddenJobs" class="hidden-content mt-6 space-y-6">
+                <div class="bg-blue-50 p-6 rounded-lg border border-blue-100">
+                    <h4 class="text-xl font-bold text-slate-800">Machine Learning Researcher</h4>
+                    <p class="text-sm text-gray-500 mb-3">Location: London | Type: Contract</p>
+                    <p class="text-gray-700">This job was hidden behind a click event! If your scraper reads this, Playwright successfully found and clicked the button.</p>
+                </div>
+            </div>
+        </section>
+
+        <section>
+            <h3 class="text-2xl font-bold border-b-2 border-slate-200 pb-2 mb-6">Upcoming Hackathons</h3>
+            <div id="lazyLoadContainer" class="bg-white p-6 rounded-lg shadow-sm border border-gray-100 text-gray-400 italic">
+                Loading event data from external servers...
+            </div>
+        </section>
+
+    </main>
+
+    <script>
+        // 1. Logic for the "Load More" Button
+        document.getElementById('loadMoreBtn').addEventListener('click', function() {
+            const hiddenDiv = document.getElementById('hiddenJobs');
+            hiddenDiv.classList.remove('hidden-content');
+            hiddenDiv.classList.add('visible-content');
+            this.style.display = 'none'; // Hide button after clicking
+        });
+
+        // 2. Logic for Lazy Loading (Simulating an API call that takes 2.5 seconds)
+        setTimeout(() => {
+            const container = document.getElementById('lazyLoadContainer');
+            container.classList.remove('text-gray-400', 'italic');
+            container.innerHTML = `
+                <h4 class="text-xl font-bold text-green-700">Global AI Hackathon 2026</h4>
+                <p class="text-sm text-gray-500 mb-3">Date: November 1-3 | Virtual</p>
+                <p class="text-gray-700 font-medium">Registration is now live! First prize is $50,000. If your scraper sees this, it successfully waited for the page to fully render.</p>
+            `;
+        }, 2500); 
+    </script>
+</body>
+</html>

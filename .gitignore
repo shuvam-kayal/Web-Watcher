@@ -1,0 +1,66 @@
+# =========================
+# SECRETS & CONFIGURATION (CRITICAL)
+# =========================
+.env
+.env.*
+*.pem
+secrets.json
+
+# =========================
+# PYTHON ENVIRONMENTS
+# =========================
+venv/
+env/
+.venv/
+.env_python/
+Pipfile.lock
+poetry.lock
+
+# =========================
+# PYTHON CACHE & COMPILED FILES
+# =========================
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.coverage
+htmlcov/
+
+# =========================
+# DATABASE FILES
+# =========================
+# (Just in case you ever switch back to local testing)
+*.db
+*.sqlite
+*.sqlite3
+
+# =========================
+# PLAYWRIGHT & SCRAPING ARTIFACTS
+# =========================
+test-results/
+playwright-report/
+blob-report/
+playwright/.cache/
+downloads/
+*.log
+
+# =========================
+# OS GENERATED FILES
+# =========================
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# =========================
+# IDE & EDITORS
+# =========================
+.vscode/
+.idea/
+*.swp
+*.swo
+.project
+.settings/
