@@ -1,6 +1,7 @@
 import os
 import hashlib
 import datetime
+import re
 import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
@@ -14,6 +15,8 @@ from dotenv import load_dotenv
 import psycopg2
 from psycopg2.extras import RealDictCursor
 from fastapi import HTTPException
+import json
+#from playwright_stealth import stealth_sync
 
 # Load environment variables
 load_dotenv()
@@ -78,116 +81,106 @@ init_db()
 
 # --- Helper: Send Email Alerts ---
 def send_email_alert(site_name, url, summary):
-    if not all([EMAIL_ADDRESS, EMAIL_PASSWORD, NOTIFICATION_SINK]):
-        print("❌ Email credentials missing. Skipping email.")
+    resend_api_key = os.getenv("RESEND_API_KEY")
+    
+    if not resend_api_key:
+        print("❌ Resend API key missing.")
         return
 
+    headers = {
+        "Authorization": f"Bearer {resend_api_key}",
+        "Content-Type": "application/json"
+    }
+    payload = {
+        "from": "onboarding@resend.dev", # Resend's free testing address
+        "to": [os.getenv("NOTIFICATION_SINK")], 
+        "subject": f"🚨 Update Detected: {site_name}",
+        "text": f"Website: {url}\n\nSummary:\n{summary}"
+    }
     try:
-        msg = MIMEMultipart()
-        msg['From'] = EMAIL_ADDRESS
-        msg['To'] = NOTIFICATION_SINK
-        msg['Subject'] = f"🚨 Update Detected: {site_name}"
-
-        body = f"""
-        Hello,
-
-        An update or new announcement was detected on {site_name}.
-
-        🎯 Website: {url}
-        📝 AI Summary of Changes:
-        --------------------------------------------------
-        {summary}
-        --------------------------------------------------
-
-        Check your local Web Watcher Dashboard for complete history.
-        """
-        msg.attach(MIMEText(body, 'plain'))
-
-        with smtplib.SMTP("smtp.gmail.com", 587) as server:
-            server.starttls()
-            server.login(EMAIL_ADDRESS, EMAIL_PASSWORD)
-            server.sendmail(EMAIL_ADDRESS, NOTIFICATION_SINK, msg.as_string())
-        print(f"📧 Email notification successfully sent for {site_name}")
+        requests.post("https://api.resend.com/emails", headers=headers, json=payload)
+        print(f"📧 HTTP Email successfully sent for {site_name}")
     except Exception as e:
-        print(f"❌ Failed to send email: {e}")
+        print(f"❌ Failed to send HTTP email: {e}")
 
 # --- Helper: AI Summary Generation via Gemini ---
 def generate_change_summary(site_name, old_text, new_text):
     if not GEMINI_API_KEY:
-        return "Change detected, but AI summary generation failed due to missing API key."
+        return {"is_important": False, "summary": "Missing API Key."}
 
     if not old_text:
-        return "Initial scan complete. Tracking started for this page."
+        return {"is_important": True, "summary": "Initial scan complete. Tracking started for this page."}
         
     url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite:generateContent?key={GEMINI_API_KEY}"
     
     prompt = f"""
-    You are an automated website change monitoring assistant tracking internship positions, hackathons, and career updates.
+    You are an intelligent website monitoring assistant.
     The website '{site_name}' has modified its content.
     
-    PREVIOUS TEXT CONTENT:
+    PREVIOUS TEXT:
     \"\"\"{old_text[:3000]}\"\"\"
     
-    NEW TEXT CONTENT:
+    NEW TEXT:
     \"\"\"{new_text[:3000]}\"\"\"
     
-    Identify if there are any new deadlines, application portals, internship opportunities, or important announcements added in the NEW text compared to the PREVIOUS text.
+    STEP 1: Analyze the context and the changes. 
+    - High Priority: New internships, hackathons, application portals, deadlines, or career opportunities.
+    - Medium Priority: Any significant new announcements, program launches, or major contextual updates relevant to the site's apparent purpose.
+    - Ignore: Purely structural HTML/CSS changes, minor wording tweaks, expired dates, copyright year updates, or irrelevant generic news.
     
-    Provide a highly concise list focusing only on actionable changes.
+    STEP 2: Return your analysis STRICTLY as a valid JSON object. Do not include markdown formatting or code blocks outside the JSON.
     
-    CRITICAL FORMATTING RULES:
-    1. Do NOT use markdown syntax. 
-    2. Do NOT use asterisks (**) for bold text.
-    3. Do NOT use markdown bullets (* or -).
-    4. Format your points cleanly using standard numbers (e.g., "1. Update: ...") and use regular line breaks between points.
-    If it is just a generic structural update, say "Minor layout or structural update detected."
+    EXPECTED JSON FORMAT:
+    {{
+        "is_important": true/false,
+        "summary": "If important, provide a concise numbered list of the actionable or significant changes here. If not, leave as an empty string."
+    }}
     """
     
     payload = {"contents": [{"parts": [{"text": prompt}]}]}
     try:
         response = requests.post(url, json=payload, timeout=20)
         if response.status_code == 200:
-            return response.json()['candidates'][0]['content']['parts'][0]['text']
+            raw_response = response.json()['candidates'][0]['content']['parts'][0]['text']
+            clean_json_string = raw_response.strip().strip('```json').strip('```')
+            return json.loads(clean_json_string)
     except Exception as e:
         print(f"🤖 Gemini Error: {e}")
-    return "Change detected, but AI summary generation failed."
+        
+    return {"is_important": False, "summary": "Error generating summary."}
 
 # --- ADVANCED PLAYWRIGHT INTERACTION ---
 def scrape_advanced_page(url):
     """Simulates a human to trigger lazy-loads and expand hidden text."""
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=True)
+        # We still keep the basic User-Agent string as it helps slightly without needing extra libraries
         page = browser.new_page(user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
         
         print(f"🌐 Loading {url} via Playwright...")
         
-        # networkidle ensures initial React/Angular data fetches finish
         page.goto(url, wait_until="networkidle", timeout=45000)
         
         # 1. Trigger Lazy Loading by scrolling down and back up
         page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
-        page.wait_for_timeout(2000) # Wait 2 seconds for elements to pop in
+        page.wait_for_timeout(2000)
         page.evaluate("window.scrollTo(0, 0)")
         
-        # 2. Attempt to click common "Read More" or "Accept Cookies" buttons to reveal text
-        # Using regex to catch variations like "Read More", "read more", "SHOW MORE"
+        # 2. Attempt to click common "Read More" buttons
         expand_phrases = ["read more", "show more", "expand", "load more", "accept"]
         for phrase in expand_phrases:
             try:
-                # Find all buttons/links that contain the phrase and click them forcefully
                 elements = page.get_by_text(re.compile(f"(?i){phrase}")).all()
                 for el in elements:
                     if el.is_visible():
                         el.click(timeout=1000, force=True)
-                        page.wait_for_timeout(500) # Short pause to let text expand
+                        page.wait_for_timeout(500)
             except Exception:
-                pass # If it fails to click, just ignore and move on
+                pass 
                 
-        # Get the final, fully expanded HTML
         html_content = page.content()
         browser.close()
         
-    # Clean the HTML
     soup = BeautifulSoup(html_content, 'html.parser')
     for element in soup(["script", "style", "nav", "footer"]):
         element.extract()
@@ -234,7 +227,6 @@ def process_single_site(site_id=None, force=False):
     print(f"🔄 Processing queue target: {target_site['name']}")
     
     try:
-        # Run the advanced human-like scraper
         page_text = scrape_advanced_page(target_site['url'])
         current_hash = hashlib.sha256(page_text.encode('utf-8')).hexdigest()
         
@@ -242,13 +234,25 @@ def process_single_site(site_id=None, force=False):
         old_text = target_site['last_raw_text']
         
         if old_hash and current_hash != old_hash:
-            summary = generate_change_summary(target_site['name'], old_text, page_text)
-            cursor.execute(
-                "INSERT INTO announcements (site_id, summary, detected_at) VALUES (%s, %s, %s)",
-                (target_site['id'], summary, now.isoformat())
-            )
-            send_email_alert(target_site['name'], target_site['url'], summary)
+            # 1. Ask the AI to judge the change
+            ai_decision = generate_change_summary(target_site['name'], old_text, page_text)
             
+            # 2. THE GATEKEEPER: Only proceed if the AI says it matters
+            if ai_decision.get("is_important") is True:
+                summary_text = ai_decision.get("summary", "Important update detected.")
+                
+                # Save to database
+                cursor.execute(
+                    "INSERT INTO announcements (site_id, summary, detected_at) VALUES (%s, %s, %s)",
+                    (target_site['id'], summary_text, now.isoformat())
+                )
+                # Send the alert
+                send_email_alert(target_site['name'], target_site['url'], summary_text)
+                print(f"🚨 Important update logged and sent for {target_site['name']}")
+            else:
+                print(f"💤 Change detected on {target_site['name']}, but AI deemed it minor. Skipping alert.")
+            
+        # 3. Always update the baseline hash and timestamp so it doesn't get stuck in a loop
         cursor.execute(
             "UPDATE monitored_sites SET last_checked = %s, last_content_hash = %s, last_raw_text = %s WHERE id = %s",
             (now.isoformat(), current_hash, page_text, target_site['id'])

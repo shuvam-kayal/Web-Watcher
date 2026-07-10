@@ -6,3 +6,6 @@ apscheduler
 playwright
 python-dotenv
 psycopg2-binary
+python-multipart
+#playwright-stealth==1.0.6
+setuptools
