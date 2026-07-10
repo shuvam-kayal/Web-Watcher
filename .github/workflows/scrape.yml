@@ -1,0 +1,29 @@
+name: Web Watcher Scraper
+on:
+  schedule:
+    - cron: '0 */3 * * *' # Runs exactly every 3 hours
+  workflow_dispatch: # Allows you to click a button to run it manually
+
+jobs:
+  scrape:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+          
+      - name: Install dependencies
+        run: |
+          pip install bs4 requests playwright psycopg2-binary
+          playwright install chromium
+          
+      - name: Run Scraper
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          NOTIFICATION_SINK: ${{ secrets.NOTIFICATION_SINK }}
+        run: python scraper.py
